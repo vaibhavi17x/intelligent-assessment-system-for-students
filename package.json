@@ -1,0 +1,45 @@
+{
+    "name": "intelligent-assessment-system",
+    "version": "0.1.0",
+    "description": "AI-assisted assessment system for students with teacher review",
+    "private": true,
+    "workspaces": [
+        "frontend",
+        "backend"
+    ],
+    "scripts": {
+        "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+        "dev:frontend": "npm run dev --workspace=frontend",
+        "dev:backend": "npm run dev --workspace=backend",
+        "build": "npm run build --workspace=frontend && npm run build --workspace=backend",
+        "build:frontend": "npm run build --workspace=frontend",
+        "build:backend": "npm run build --workspace=backend",
+        "test": "npm run test --workspace=frontend && npm run test --workspace=backend",
+        "test:frontend": "npm run test --workspace=frontend",
+        "test:backend": "npm run test --workspace=backend",
+        "test:coverage": "npm run test:coverage --workspace=backend",
+        "lint": "npm run lint --workspace=frontend && npm run lint --workspace=backend",
+        "lint:frontend": "npm run lint --workspace=frontend",
+        "lint:backend": "npm run lint --workspace=backend",
+        "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
+        "db:generate": "cd backend && npx prisma generate",
+        "db:migrate": "cd backend && npx prisma migrate dev",
+        "db:studio": "cd backend && npx prisma studio",
+        "db:seed": "cd backend && npx prisma db seed",
+        "db:reset": "cd backend && npx prisma migrate reset"
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2",
+        "husky": "^8.0.3",
+        "lint-staged": "^15.2.0",
+        "prettier": "^3.1.1",
+        "prisma": "^5.7.1"
+    },
+    "engines": {
+        "node": ">=18.0.0",
+        "npm": ">=9.0.0"
+    },
+    "dependencies": {
+        "@prisma/client": "^5.7.1"
+    }
+}

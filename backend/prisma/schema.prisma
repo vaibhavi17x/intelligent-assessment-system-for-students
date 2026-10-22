@@ -1,0 +1,402 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== IDENTITY ====================
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String   // Hashed password
+  firstName String
+  lastName  String
+  role      Role     @default(STUDENT)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  mcqAttempts           MCQAttempt[]
+  assignmentSubmissions AssignmentSubmission[]
+  teacherReviews        TeacherReview[]
+  auditEvents           AuditEvent[]
+
+  @@index([email])
+  @@index([role])
+}
+
+// ==================== ACADEMIC STRUCTURE ====================
+
+model Subject {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  topics      Topic[]
+  assessments Assessment[]
+  assignments Assignment[]
+
+  @@index([code])
+}
+
+model Topic {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  subjectId   String
+  order       Int
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  subject     Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  questions   Question[]
+
+  @@index([subjectId])
+  @@index([order])
+}
+
+// ==================== MCQ SYSTEM ====================
+
+enum QuestionDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+}
+
+model Question {
+  id          String            @id @default(cuid())
+  text        String
+  type        QuestionType
+  difficulty  QuestionDifficulty
+  topicId     String
+  marks       Float             @default(1)
+  explanation String?
+  isActive    Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Relations
+  topic       Topic             @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  options     QuestionOption[]
+  assessmentQuestions AssessmentQuestion[]
+
+  @@index([topicId])
+  @@index([difficulty])
+}
+
+model QuestionOption {
+  id         String  @id @default(cuid())
+  text       String
+  isCorrect  Boolean @default(false)
+  questionId String
+  order      Int
+  createdAt  DateTime @default(now())
+
+  // Relations
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+}
+
+enum AssessmentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Assessment {
+  id          String            @id @default(cuid())
+  title       String
+  description String?
+  subjectId   String
+  duration    Int               // Duration in minutes
+  totalMarks  Float
+  passMarks   Float
+  status      AssessmentStatus  @default(DRAFT)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Relations
+  subject     Subject           @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  questions   AssessmentQuestion[]
+  attempts    MCQAttempt[]
+
+  @@index([subjectId])
+  @@index([status])
+}
+
+model AssessmentQuestion {
+  id           String @id @default(cuid())
+  assessmentId String
+  questionId   String
+  order        Int
+  marks        Float
+
+  // Relations
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  question     Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, questionId])
+  @@index([assessmentId])
+  @@index([questionId])
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  AUTO_GRADED
+  REVIEWED
+}
+
+model MCQAttempt {
+  id           String       @id @default(cuid())
+  assessmentId String
+  userId       String
+  status       AttemptStatus @default(IN_PROGRESS)
+  score        Float?
+  obtainedMarks Float?
+  percentage   Float?
+  startedAt    DateTime     @default(now())
+  submittedAt  DateTime?
+  gradedAt     DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  // Relations
+  assessment   Assessment   @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers      StudentAnswer[]
+
+  @@unique([assessmentId, userId])
+  @@index([assessmentId])
+  @@index([userId])
+  @@index([status])
+}
+
+model StudentAnswer {
+  id         String @id @default(cuid())
+  attemptId  String
+  questionId String
+  selectedOptions String[] // Array of option IDs selected
+  isCorrect  Boolean?
+  marksObtained Float?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  attempt    MCQAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
+  @@index([questionId])
+}
+
+// ==================== ASSIGNMENT SYSTEM ====================
+
+enum AssignmentStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+model Assignment {
+  id          String           @id @default(cuid())
+  title       String
+  description String?
+  subjectId   String
+  dueDate     DateTime
+  maxMarks    Float
+  status      AssignmentStatus @default(DRAFT)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  // Relations
+  subject     Subject          @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  modelAnswer ModelAnswer?
+  rubric      Rubric?
+  submissions AssignmentSubmission[]
+
+  @@index([subjectId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model ModelAnswer {
+  id           String   @id @default(cuid())
+  assignmentId String   @unique
+  content      String   // Text content of model answer
+  filePath     String?  // Optional file reference
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId])
+}
+
+model Rubric {
+  id           String   @id @default(cuid())
+  assignmentId String   @unique
+  criteria     Json     // JSON structure for rubric criteria
+  maxMarks     Float
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId])
+}
+
+enum SubmissionStatus {
+  SUBMITTED
+  PROCESSING
+  AI_EVALUATED
+  AWAITING_REVIEW
+  REVIEWED
+  REJECTED
+}
+
+model AssignmentSubmission {
+  id             String           @id @default(cuid())
+  assignmentId   String
+  userId         String
+  content        String?          // Text content if submitted as text
+  filePath       String?          // File path if submitted as file
+  fileName       String?          // Original file name
+  fileSize       Int?             // File size in bytes
+  status         SubmissionStatus @default(SUBMITTED)
+  submittedAt    DateTime         @default(now())
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  // Relations
+  assignment     Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiEvaluation   AIEvaluation?
+  teacherReview  TeacherReview?
+
+  @@unique([assignmentId, userId])
+  @@index([assignmentId])
+  @@index([userId])
+  @@index([status])
+}
+
+// ==================== AI EVALUATION ====================
+
+enum AIEvaluationStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model AIEvaluation {
+  id                String            @id @default(cuid())
+  submissionId      String            @unique
+  suggestedScore    Float?
+  maxScore          Float
+  feedback          String?           // AI-generated feedback
+  conceptAnalysis   Json?             // JSON structure for concept coverage
+  similarityScore   Float?
+  relevanceScore    Float?
+  evaluationMetadata Json?            // Metadata about the evaluation process
+  status            AIEvaluationStatus @default(PENDING)
+  processedAt       DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  // Relations
+  submission        AssignmentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId])
+  @@index([status])
+}
+
+// ==================== TEACHER REVIEW ====================
+
+model TeacherReview {
+  id               String   @id @default(cuid())
+  submissionId     String   @unique
+  teacherId        String
+  approvedScore    Float?
+  teacherFeedback  String?
+  overrideReason   String?  // Reason if teacher overrides AI score
+  isApproved       Boolean  @default(false)
+  reviewedAt       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  submission       AssignmentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  teacher          User                 @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId])
+  @@index([teacherId])
+}
+
+// ==================== AUDIT ====================
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  SUBMIT
+  EVALUATE
+  REVIEW
+  APPROVE
+  REJECT
+  EXPORT
+  IMPORT
+}
+
+model AuditEvent {
+  id         String      @id @default(cuid())
+  actorId    String
+  action     AuditAction
+  resource   String      // Resource type (e.g., "Assignment", "Submission")
+  resourceId String?     // ID of the affected resource
+  details    Json?       // Additional context
+  ipAddress  String?
+  userAgent  String?
+  timestamp  DateTime    @default(now())
+
+  // Relations
+  actor      User        @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([actorId])
+  @@index([action])
+  @@index([resource])
+  @@index([timestamp])
+}
