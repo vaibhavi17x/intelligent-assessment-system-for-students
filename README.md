@@ -1,3 +1,4 @@
+
 # Intelligent Assessment System
 
 An academic project for an AI-assisted assessment system. The current application implements student registration/login, profile and password management, and a protected dashboard. Assessment, assignment, AI evaluation, teacher review, and analytics workflows are planned, not implemented.
@@ -249,3 +250,6 @@ For project-specific questions, refer to the `PROJECT_PROGRESS.md` documentation
 
 **Current Status**: Milestone 2 implemented; audit passed with limitations on 2026-10-17.
 **Last Updated**: 2026-10-17
+
+# intelligent-assessment-system-for-students
+
